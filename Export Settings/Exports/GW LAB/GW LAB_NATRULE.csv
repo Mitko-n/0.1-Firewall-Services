@@ -1,4 +1,0 @@
-Customer,Name,OriginalSourceNetworks,TranslatedSource,OriginalDestinationNetworks,TranslatedDestination,OriginalServices,TranslatedService,InboundInterfaces,OutboundInterfaces
-GW LAB,DNAT to wrk.lab.lcal,,Original,{'Network': '#Port2:1'},wrk.lab.local,{'Service': 'RDP'},Original,,
-GW LAB,DNAT srv.lab.local,,Original,{'Network': '#Port2:0'},srv.lab.local,{'Service': 'RDP'},Original,,
-GW LAB,Default SNAT IPv4,,MASQ,,Original,,Original,,{'Interface': 'Port2'}

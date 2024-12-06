@@ -1,4 +1,0 @@
-Customer,Interface,Name,IPAddress,Netmask
-GW LAB,Port2,Port2:0,172.16.17.31,255.255.255.255
-GW LAB,Port2,Port2:1,172.16.17.32,255.255.255.255
-GW LAB,Port2,Port2:2,172.16.17.33,255.255.255.255
