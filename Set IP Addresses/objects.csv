@@ -1,0 +1,10 @@
+type,data
+ipv4,66.81.240.0/20
+ipv4,80.81.128.0/20
+fqdn,status.ringcentral.com
+fqdn,support.ringcentral.com
+fqdn,discovery.ringcentral.biz
+ipv4,192.168.100.1-192.168.100.200
+ipv4,10.0.0.0-10.0.0.200
+ipv4,10.0.0.10
+ipv4,10.0.0.11/32

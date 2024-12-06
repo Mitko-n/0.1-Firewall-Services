@@ -1,0 +1,5 @@
+Customer,Name,Hardware,NetworkZone,IPAddress,Netmask,GatewayIP,GatewayName
+GW LAB,Port1,Port1,LAN,192.168.10.1,255.255.255.0,,
+GW LAB,Port2,Port2,WAN,172.16.17.30,255.255.255.0,172.16.17.1,Port2_GW
+GW LAB,Port3,Port3,Public,172.26.0.1,255.255.255.0,,
+GW LAB,Port4,Port4,None,,255.255.255.255,,
