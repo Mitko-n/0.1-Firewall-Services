@@ -96,9 +96,23 @@ class Firewall:
 
         return {"status": "404", "message": "Entity not found", "data": []}
 
+    # Remove extra spaces in dict value
+    def _fix_data(self, data):
+        if isinstance(data, dict):
+            return {
+                k: self._fix_data(v) if not (isinstance(v, str) and ":" in v) else v.replace(" ", "")
+                for k, v in data.items()
+            }
+        elif isinstance(data, list):
+            return [self._fix_data(item) for item in data]
+        return data
+
+
     def _perform_action(self, action_template_key, entity_type, entity_data=None, filter_selector=None):
         if self.closed:
             return {"status": "400", "message": "Session is closed and cannot be used.", "data": []}
+
+        entity_data = self._fix_data(entity_data) # fix minor formating problems
 
         # Use the pre-compiled template
         template_action = self.templates_dict[action_template_key]
@@ -106,8 +120,13 @@ class Firewall:
         xml_action = template_action.render(entity_type=entity_type, entity_data=entity_data_xml, filter_selector=filter_selector)
         full_request_xml = f"<Request>{self.xml_login}{xml_action}</Request>"
 
+        # print(full_request_xml)
+
         try:
             response = self.session.post(self.url, headers=self.headers, data={"reqxml": full_request_xml}, timeout=30)
+
+            # print(response.text)
+
             return self._format_xml_response(xmltodict.parse(response.content.decode()), entity_type)
         except requests.RequestException as e:
             return {"status": "500", "message": f"Request failed: {str(e)}", "data": []}
@@ -123,7 +142,7 @@ class Firewall:
             return {"status": "400", "message": "Session was already closed.", "data": []}
 
     # CRUD Operations
-    
+
     def create(self, entity_type, entity_data):
         return self._perform_action("create", entity_type, entity_data=entity_data)
 

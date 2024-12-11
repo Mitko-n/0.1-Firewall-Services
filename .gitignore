@@ -1,0 +1,7 @@
+**/00. help/
+**/Credentials/
+**/__pycache__/
+**/Exports/
+*.csv
+*.txt
+*.json
