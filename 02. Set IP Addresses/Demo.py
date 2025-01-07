@@ -1,8 +1,14 @@
+import csv
+import json
+
+import os
 import sys
-sys.path.insert(0, 'C:/Users/Mitko.Nikolov/OneDrive - Integrity360/Documents/Code/0.1 Firewall Services')
+sys.path.insert(0, os.getcwd()) # For Script
+
 
 from firewall_api import Firewall, LIKE, EQ, NOT
-import json
+
+
 
 # Firewall Credentials
 # JSON File
@@ -21,7 +27,7 @@ firewall_ip = firewall_info["firewall_ip"]
 port = firewall_info["port"]
 password_encrypted = firewall_info["password_encrypted"]
 
-firewall = Firewall(username, password, firewall_ip, port,certificate_verify=False, password_encrypted=True)
+firewall = Firewall(username, password, firewall_ip, port, certificate_verify=False, password_encrypted=True)
 
 print("CREATE :: ", firewall.create("IPHost", {"Name": "TEST 1", "IPFamily": "IPv4", "HostType": "IP", "IPAddress": "172.16.17.100"}))
 print("CREATE :: ", firewall.create("IPHost", {"Name": "TEST 2", "IPFamily": "IPv4", "HostType": "IP", "IPAddress": "172.16.17.100"}))
