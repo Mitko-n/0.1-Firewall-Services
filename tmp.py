@@ -15,24 +15,29 @@ class Firewall:
     """,
         "read": """
             {%- set entity_type_map = {
-                'IPAddress': 'IPHost'
+              'IPAddress': 'IPHost'
             } -%}
-            <Get>
-                <{{ entity_type_map.get(entity_type, entity_type) | safe }}>
-                    {%- set entity_map = {
-                        'LocalServiceACL': 'RuleName',
-                        'FirewallRule': 'Name',
-                        'IPAddress': 'IPAddress',
-                        'EntityType2': 'Type2',
-                    } -%}
-                    {%- if entity_data -%}
-                        <Filter>
-                            <key name="{{ entity_map.get(entity_type, 'Name') | safe }}" criteria="{{ filter_selector | safe }}">{{ entity_data | safe }}</key>
-                        </Filter>
-                    {%- endif -%}
-                </{{ entity_type_map.get(entity_type, entity_type) | safe }}>
-            </Get>
-        """,
+        <Get><{{ entity_type_map.get(entity_type,entity_type) }}>
+
+            {%- set entity_map = {
+                'LocalServiceACL': 'RuleName',
+                'FirewallRule': 'Name',
+                'IPAddress': 'IPAddress',
+                'EntityType2': 'Type2',
+                'EntityType3': 'Type3',
+                'EntityType4': 'Type4',
+                'EntityType5': 'Type5',
+                'EntityType6': 'Type6',
+                'EntityType7': 'Type7',
+                'EntityType8': 'Type8',
+                'EntityType9': 'Type9',
+                'EntityType10': 'Type10'
+            } -%}
+            {%- if entity_data -%}
+                <Filter><key name="{{ entity_map.get(entity_type, 'Name') }}" criteria="{{ filter_selector }}">{{ entity_data }}</key></Filter>
+            {%- endif -%}
+        </<{{ entity_type_map.get(entity_type,entity_type) }}></Get>
+    """,
         "update": """
         <Set operation="update"><{{ entity_type }}>{{ entity_data | safe }}</{{ entity_type }}></Set>
     """,
@@ -42,6 +47,15 @@ class Firewall:
                 'FirewallRule': '<Name>{}</Name>',
                 'LocalServiceACL': '<RuleName>{}</RuleName>',
                 'EntityType1': '<Type1>{}</Type1>',
+                'EntityType2': '<Type2>{}</Type2>',
+                'EntityType3': '<Type3>{}</Type3>',
+                'EntityType4': '<Type4>{}</Type4>',
+                'EntityType5': '<Type5>{}</Type5>',
+                'EntityType6': '<Type6>{}</Type6>',
+                'EntityType7': '<Type7>{}</Type7>',
+                'EntityType8': '<Type8>{}</Type8>',
+                'EntityType9': '<Type9>{}</Type9>',
+                'EntityType10': '<Type10>{}</Type10>'
             } -%}
             {%- if entity_type in entity_map -%}
                 {{ entity_map[entity_type].format(entity_data) | safe }}
@@ -81,7 +95,6 @@ class Firewall:
     def _format_xml_response(self, response, entity_type):
         response = response.get("Response", {})
 
-        # Handle Status response
         if "Status" in response:
             formatted_response = {
                 "status": response["Status"]["@code"],
@@ -89,19 +102,11 @@ class Firewall:
             }
             return formatted_response  # Remove empty "data"
 
-        # Handle Login failure
         if response.get("Login") and response["Login"].get("status") == "Authentication Failure":
             return {"status": "401", "message": response["Login"]["status"]}
 
-        # Handle entity_type mapping
-        if entity_type == "IPAddress" and "IPHost" in response:
-            entity_type = "IPHost"  # If requesting IPAddress, check for IPHost in the response
-
-        # Check if the entity_type exists in the response
         if entity_type in response:
             entity_data = response[entity_type]
-            
-            # Handle the case where a status code is present in the entity data
             if "Status" in entity_data:
                 if "@code" in entity_data["Status"]:
                     return {
@@ -111,7 +116,6 @@ class Firewall:
                 elif entity_data["Status"] in ["No. of records Zero.", "Number of records Zero."]:
                     return {"status": "526", "message": "Record does not exist."}
 
-            # If no Status, check the entity_data and remove unnecessary fields
             entity_data = [entity_data] if isinstance(entity_data, dict) else entity_data
             entity_data = [{k: v for k, v in item.items() if k != "@transactionid"} for item in entity_data]
 
@@ -122,7 +126,6 @@ class Firewall:
             )
 
         return {"status": "404", "message": "Entity not found"}
-
 
     # Remove extra spaces in dict value
     def _fix_data(self, data):
@@ -144,7 +147,7 @@ class Firewall:
         xml_action = template_action.render(entity_type=entity_type, entity_data=entity_data_xml, filter_selector=filter_selector)
         full_request_xml = f"<Request>{self.xml_login}{xml_action}</Request>"
         ########## Debugging
-        # print(full_request_xml)
+        print(full_request_xml)
 
         try:
             response = self.session.post(self.url, headers=self.headers, data={"reqxml": full_request_xml}, timeout=30)
