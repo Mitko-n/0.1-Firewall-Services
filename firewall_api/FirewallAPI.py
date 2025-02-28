@@ -5,6 +5,7 @@ EQ = "="
 NOT = "!="
 LIKE = "like"
 
+
 class Firewall:
     def __init__(self, username, password, hostname, port=4444, certificate_verify=False, password_encrypted=False):
         """
@@ -108,12 +109,49 @@ class Firewall:
         """
         if not isinstance(entity_data, dict):
             return {"status": "400", "message": "entity_data must be a dictionary.", "data": []}
+
+        # Only clean ports for "Services" entities
+        if entity == "Services":
+            entity_data = self._remove_spaces(entity_data)
+
         xml_action = f"""
             <Set operation="add">
                 <{entity}>{xmltodict.unparse(entity_data, full_document=False)}</{entity}>
             </Set>
         """
         return self._perform_action(xml_action, entity)
+
+    def _remove_spaces(self, data):
+        """
+        Recursively removes spaces from string values in a dictionary or list.
+        
+        This method iterates through a dictionary or list and removes spaces from
+        string values, except for specific keys ("Name", "Description", and "RuleName").
+        If a value is a nested dictionary, the method is called recursively. Lists 
+        are processed by iterating over each item and recursively calling the function 
+        if the item is a dictionary.
+
+        Args:
+            data (dict, list, or str): The input data, which can be a dictionary, list, 
+                                        or string. The method processes nested dictionaries 
+                                        and lists recursively.
+
+        Returns:
+            The input data with spaces removed from string values (except for "Name", 
+            "Description", and "RuleName").
+        """
+        if not isinstance(data, dict):
+            return data
+
+        for key, value in data.items():
+            if isinstance(value, dict):
+                data[key] = self._remove_spaces(value)
+            elif isinstance(value, list):
+                data[key] = [self._remove_spaces(item) if isinstance(item, dict) else item for item in value]
+            elif isinstance(value, str) and key not in ["Name", "Description", "RuleName"]:
+                data[key] = value.replace(" ", "")
+        return data
+
 
     def read(self, entity, filter_value=None, filter_criteria=LIKE, filter_key_field=None):
         """
