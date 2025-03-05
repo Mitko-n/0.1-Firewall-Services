@@ -1,31 +1,14 @@
 import requests
 import xmltodict
 
+# Constants for Filter Criteria
 EQ = "="
 NOT = "!="
 LIKE = "like"
 
 
 class Firewall:
-    def __init__(
-        self,
-        username,
-        password,
-        hostname,
-        port=4444,
-        certificate_verify=False,
-        password_encrypted=False,
-    ):
-        """
-        Initialize the Firewall object with connection details.
-
-        :param username: Username for authentication.
-        :param password: Password for authentication.
-        :param hostname: Hostname of the firewall.
-        :param port: Port number for the API connection (default is 4444).
-        :param certificate_verify: Boolean to verify SSL certificates (default is False).
-        :param password_encrypted: Boolean indicating if the password is encrypted (default is False).
-        """
+    def __init__(self, username, password, hostname, port=4444, certificate_verify=False, password_encrypted=False):
         self.url = f"https://{hostname}:{port}/webconsole/APIController"
         self.xml_login = f"""
             <Login>
@@ -38,119 +21,54 @@ class Firewall:
         self.headers = {"Accept": "application/xml"}
         if not certificate_verify:
             requests.packages.urllib3.disable_warnings()
-        self.closed = False
 
     def __enter__(self):
-        """
-        Enter the runtime context related to this object.
-        """
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
-        """
-        Exit the runtime context related to this object.
-        """
         self.close()
 
     def close(self):
-        """
-        Close the session if it is open.
-
-        :return: A dictionary with the status and message of the operation.
-        """
-        if not self.closed:
+        if self.session is not None:
             self.session.close()
-            self.closed = True
-            return {"status": "200", "message": "Session closed successfully.", "data": []}
+            self.session = None
+            return {"status": "216", "message": "Session closed successfully.", "data": []}
         return {"status": "400", "message": "Session was already closed.", "data": []}
 
     def _format_xml_response(self, response, entity):
-        """
-        Format the XML response from the API.
-
-        :param response: The XML response from the API.
-        :param entity: The entity to extract from the response.
-        :return: A dictionary with the status, message, and data of the operation.
-        """
         response = response.get("Response", {})
         if "Status" in response:
-            return {
-                "status": response["Status"]["@code"],
-                "message": response["Status"]["#text"],
-                "data": [],
-            }
-        if (
-            response.get("Login")
-            and response["Login"].get("status") == "Authentication Failure"
-        ):
+            return {"status": response["Status"]["@code"], "message": response["Status"]["#text"], "data": []}
+        if response.get("Login") and response["Login"].get("status") == "Authentication Failure":
             return {"status": "401", "message": response["Login"]["status"], "data": []}
         if entity in response:
             entity_data = response[entity]
             if "Status" in entity_data:
                 if "@code" in entity_data["Status"]:
-                    return {
-                        "status": entity_data["Status"]["@code"],
-                        "message": entity_data["Status"]["#text"],
-                        "data": [],
-                    }
-                elif entity_data["Status"] in [
-                    "No. of records Zero.",
-                    "Number of records Zero.",
-                ]:
+                    return {"status": entity_data["Status"]["@code"], "message": entity_data["Status"]["#text"], "data": []}
+                elif entity_data["Status"] in ["No. of records Zero.", "Number of records Zero."]:
                     return {"status": "526", "message": "Record does not exist.", "data": []}
             entity_data = [entity_data] if isinstance(entity_data, dict) else entity_data
-            entity_data = [
-                {k: v for k, v in item.items() if k != "@transactionid"}
-                for item in entity_data
-            ]
+            entity_data = [{k: v for k, v in item.items() if k != "@transactionid"} for item in entity_data]
             return {"status": "216", "message": "Operation Successful.", "data": entity_data}
         return {"status": "404", "message": "Entity not found", "data": []}
 
     def _perform_action(self, xml_action, entity):
-        """
-        Perform an action by sending an XML request to the API.
+        if self.session is None:
+            return {"status": "400", "message": "Session is closed and cannot be used.", "data": []}
 
-        :param xml_action: The XML action to perform.
-        :param entity: The entity to perform the action on.
-        :return: A dictionary with the status, message, and data of the operation.
-        """
-        if self.closed:
-            return {
-                "status": "400",
-                "message": "Session is closed and cannot be used.",
-                "data": [],
-            }
         full_request_xml = f"<Request>{self.xml_login}{xml_action}</Request>"
         try:
-            response = self.session.post(
-                self.url,
-                headers=self.headers,
-                data={"reqxml": full_request_xml},
-                timeout=30,
-            )
+            response = self.session.post(self.url, headers=self.headers, data={"reqxml": full_request_xml}, timeout=30)
             response.raise_for_status()
-            return self._format_xml_response(
-                xmltodict.parse(response.content.decode()), entity
-            )
+            return self._format_xml_response(xmltodict.parse(response.content.decode()), entity)
         except requests.RequestException as e:
             return {"status": "500", "message": f"Request failed: {str(e)}", "data": []}
 
     def create(self, entity, entity_data):
-        """
-        Create a new entity in the firewall.
-
-        :param entity: The type of entity to create.
-        :param entity_data: The data for the entity to create.
-        :return: A dictionary with the status, message, and data of the operation.
-        """
         if not isinstance(entity_data, dict):
-            return {
-                "status": "400",
-                "message": "entity_data must be a dictionary.",
-                "data": [],
-            }
+            return {"status": "400", "message": "entity_data must be a dictionary.", "data": []}
 
-        # Only clean ports for "Services" entities
         if entity == "Services":
             entity_data = self._remove_spaces(entity_data)
 
@@ -162,24 +80,6 @@ class Firewall:
         return self._perform_action(xml_action, entity)
 
     def _remove_spaces(self, data):
-        """
-        Recursively removes spaces from string values in a dictionary or list.
-
-        This method iterates through a dictionary or list and removes spaces from
-        string values, except for specific keys ("Name", "Description", and "RuleName").
-        If a value is a nested dictionary, the method is called recursively. Lists
-        are processed by iterating over each item and recursively calling the function
-        if the item is a dictionary.
-
-        Args:
-            data (dict, list, or str): The input data, which can be a dictionary, list,
-                                        or string. The method processes nested dictionaries
-                                        and lists recursively.
-
-        Returns:
-            The input data with spaces removed from string values (except for "Name",
-            "Description", and "RuleName").
-        """
         if not isinstance(data, dict):
             return data
 
@@ -187,24 +87,12 @@ class Firewall:
             if isinstance(value, dict):
                 data[key] = self._remove_spaces(value)
             elif isinstance(value, list):
-                data[key] = [
-                    self._remove_spaces(item) if isinstance(item, dict) else item
-                    for item in value
-                ]
+                data[key] = [self._remove_spaces(item) if isinstance(item, dict) else item for item in value]
             elif isinstance(value, str) and key not in ["Name", "Description", "RuleName"]:
                 data[key] = value.replace(" ", "")
         return data
 
     def read(self, entity, filter_value=None, filter_criteria=LIKE, filter_key_field=None):
-        """
-        Read an entity from the firewall.
-
-        :param entity: The type of entity to read.
-        :param filter_value: The value to filter the entity by.
-        :param filter_criteria: The criteria to filter the entity (default is LIKE).
-        :param filter_key_field: The key field to filter the entity by.
-        :return: A dictionary with the status, message, and data of the operation.
-        """
         inner_xml = ""
         if filter_value:
             inner_xml = f"""
@@ -216,15 +104,6 @@ class Firewall:
         return self._perform_action(xml_action, entity)
 
     def update(self, entity, entity_data, entity_name=None, entity_name_key="Name"):
-        """
-        Update an existing entity in the firewall.
-
-        :param entity: The type of entity to update.
-        :param entity_data: The new data for the entity.
-        :param entity_name: The name of the entity to update.
-        :param entity_name_key: The key field to identify the entity (default is "Name").
-        :return: A dictionary with the status, message, and data of the operation.
-        """
         if entity_name is None:
             if entity_name_key not in entity_data:
                 return {
@@ -233,17 +112,16 @@ class Firewall:
                     "data": [],
                 }
             entity_name = entity_data[entity_name_key]
+
         existing_data = self.read(entity, entity_name, EQ, entity_name_key)
         if existing_data["status"] != "216" or not existing_data["data"]:
             return {"status": "404", "message": "Entity not found for update.", "data": []}
         if len(existing_data["data"]) > 1:
-            return {
-                "status": "400",
-                "message": "Multiple entities found for update. Provide a unique entity_name.",
-                "data": [],
-            }
+            return {"status": "400", "message": "Multiple entities found for update. Provide a unique entity_name.", "data": []}
+
         current_entity = existing_data["data"][0]
         updated_data = self._merge_entities(current_entity, entity_data)
+
         xml_action = f"""
             <Set operation="update">
                 <{entity}>{xmltodict.unparse(updated_data, full_document=False)}</{entity}>
@@ -252,13 +130,6 @@ class Firewall:
         return self._perform_action(xml_action, entity)
 
     def _merge_entities(self, current_entity, new_entity):
-        """
-        Merge two entities, updating the current entity with new data.
-
-        :param current_entity: The current entity data.
-        :param new_entity: The new entity data to merge.
-        :return: The merged entity data.
-        """
         for key, value in new_entity.items():
             if isinstance(value, dict) and isinstance(current_entity.get(key), dict):
                 self._merge_entities(current_entity[key], value)
@@ -267,15 +138,6 @@ class Firewall:
         return current_entity
 
     def delete(self, entity, filter_value, filter_criteria=EQ, filter_key_field=None):
-        """
-        Delete an entity from the firewall.
-
-        :param entity: The type of entity to delete.
-        :param filter_value: The value to filter the entity by for deletion.
-        :param filter_criteria: The criteria to filter the entity (default is EQ).
-        :param filter_key_field: The key field to filter the entity by.
-        :return: A dictionary with the status, message, and data of the operation.
-        """
         if entity == "FirewallRule":
             inner_xml = f"<Name>{filter_value}</Name>"
         elif entity == "LocalServiceACL":
@@ -283,5 +145,63 @@ class Firewall:
         else:
             filter_key_field = filter_key_field or "Name"
             inner_xml = f'<Filter><key name="{filter_key_field}" criteria="{filter_criteria}">{filter_value}</key></Filter>'
+
         xml_action = f"""<Remove><{entity}>{inner_xml}</{entity}></Remove>"""
         return self._perform_action(xml_action, entity)
+
+    def batch_operation(self, operations, debug=False):
+        """
+        Perform multiple operations in sequence using a predefined operations list format.
+
+        :param operations: List of operation dictionaries.
+                            Each dictionary must contain:
+                                - 'action': One of 'create', 'read', 'update', 'delete'
+                                - 'entity': Entity type
+                                - 'filter_value' (for read/delete) or 'entity_data' (for create/update)
+                                - 'filter_criteria' (optional for read/delete, default to LIKE for read, EQ for delete)
+                                - 'filter_key_field' (optional for read/delete, default to None)
+        :param debug: Boolean flag to enable or disable printing debug information (default: False).
+        :return: List of results for each operation.
+        """
+        results = []
+        for index, op in enumerate(operations, start=1):
+            if debug:
+                print(f"Processing operation {index}/{len(operations)}: {op}")
+
+            action = op.get("action")
+            entity = op.get("entity")
+            filter_value = op.get("filter_value")
+            entity_data = op.get("entity_data")
+            filter_criteria = op.get("filter_criteria", LIKE if action == "read" else EQ)
+            filter_key_field = op.get("filter_key_field", None)
+
+            if not action or not entity:
+                error_response = {"status": "400", "message": "Missing 'action' or 'entity' in operation", "data": []}
+                if debug:
+                    print(f"Error in operation {index}: {error_response}")
+                results.append(error_response)
+                continue
+
+            try:
+                if action == "read":
+                    result = self.read(entity=entity, filter_value=filter_value, filter_criteria=filter_criteria, filter_key_field=filter_key_field)
+                elif action == "create":
+                    result = self.create(entity=entity, entity_data=entity_data)
+                elif action == "update":
+                    result = self.update(entity=entity, entity_data=entity_data)
+                elif action == "delete":
+                    result = self.delete(entity=entity, filter_value=filter_value, filter_criteria=filter_criteria, filter_key_field=filter_key_field)
+                else:
+                    result = {"status": "400", "message": f"Unsupported action: {action}", "data": []}
+
+                if debug:
+                    print(f"Result of operation {index} ({action}): {result}")
+                results.append(result)
+
+            except Exception as e:
+                error_response = {"status": "500", "message": f"Operation failed: {str(e)}", "data": []}
+                if debug:
+                    print(f"Error in operation {index} ({action}): {error_response}")
+                results.append(error_response)
+
+        return results
