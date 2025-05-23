@@ -25,9 +25,9 @@ username = firewall_info["username"]
 password = firewall_info["password"]
 firewall_ip = firewall_info["firewall_ip"]
 port = firewall_info["port"]
-password_encrypted = firewall_info["password_encrypted"]
 
-firewall = Firewall(username, password, firewall_ip, port, certificate_verify=False, password_encrypted=True)
+
+firewall = Firewall(username, password, firewall_ip, port, certificate_verify=False)
 
 print("CREATE :: ", firewall.create("IPHost", {"Name": "TEST 1", "IPFamily": "IPv4", "HostType": "IP", "IPAddress": "172.16.17.100"}))
 print("CREATE :: ", firewall.create("IPHost", {"Name": "TEST 2", "IPFamily": "IPv4", "HostType": "IP", "IPAddress": "172.16.17.100"}))
