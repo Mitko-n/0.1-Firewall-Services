@@ -58,3 +58,5 @@ Exports/
 htmlcov/
 .pytest_cache/
 .tox/
+05. MS Object Import.Update/config.py
+05. MS Object Import.Update/Firewall_Automation.py
