@@ -3,7 +3,6 @@
 **/__pycache__/
 **/Exports/
 *.csv
-*.txt
 *.json
 
 # Python
