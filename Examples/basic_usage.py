@@ -25,6 +25,40 @@ with Firewall(
     result = fw.read("Login")
     print("Connection Test:", result)
     
-    # Perform operations
-    result = fw.read("Services", "HTTP")
-    print("Services Result:", result) 
+    # Create a new service
+    service_data = {
+        "Name": "CustomService",
+        "Type": "TCPorUDP",
+        "ServiceDetails": {
+            "ServiceDetail": {
+                "SourcePort": "1:65535",
+                "DestinationPort": "8080",
+                "Protocol": "TCP"
+            }
+        }
+    }
+    create_result = fw.create("Services", service_data)
+    print("Create Service Result:", create_result)
+    
+    # Read services with filter
+    services = fw.read("Services", "Custom", "like", "Name")
+    print("Filtered Services:", services)
+    
+    # Update a service
+    update_data = {
+        "Name": "CustomService",
+        "Type": "TCPorUDP",
+        "ServiceDetails": {
+            "ServiceDetail": {
+                "SourcePort": "1:65535",
+                "DestinationPort": "8443",
+                "Protocol": "TCP"
+            }
+        }
+    }
+    update_result = fw.update("Services", update_data)
+    print("Update Service Result:", update_result)
+    
+    # Delete a service
+    delete_result = fw.delete("Services", "CustomService")
+    print("Delete Service Result:", delete_result) 

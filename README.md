@@ -1,28 +1,91 @@
 # Firewall API
 
-A Python client library for interacting with firewall devices via their XML API.
+A Python client library for interacting with firewall devices via their XML API. This library provides a simple and intuitive interface for managing firewall configurations, rules, services, and more.
+
+## Features
+
+- Simple and intuitive API for firewall management
+- Support for CRUD operations on firewall entities
+- Automatic session management with context manager
+- Configurable retry mechanism for failed requests
+- SSL certificate verification options
+- Comprehensive error handling
+- Detailed logging capabilities
+
+## Requirements
+
+- Python 3.7 or higher
+- Network access to the firewall device
+- Valid credentials for the firewall API
 
 ## Installation
 
+### Using pip
+
 ```bash
-# Installation instructions (adjust as needed)
+# Install from PyPI
+pip install firewall-api
+
+# Install from source
+git clone https://github.com/yourusername/firewall-api.git
+cd firewall-api
+pip install -e .
+```
+
+### Using requirements.txt
+
+```bash
+# Clone the repository
+git clone https://github.com/yourusername/firewall-api.git
+cd firewall-api
+
+# Install dependencies
 pip install -r requirements.txt
+```
+
+### Environment Variables
+
+Create a `.env` file in your project root with the following variables:
+
+```env
+FIREWALL_USERNAME=admin
+FIREWALL_PASSWORD=your_password
+FIREWALL_HOSTNAME=192.168.1.1
+FIREWALL_PORT=4444
+FIREWALL_CERTIFICATE_VERIFY=False
+FIREWALL_TIMEOUT=30
+FIREWALL_MAX_RETRIES=3
+FIREWALL_RETRY_BACKOFF=0.5
 ```
 
 ## Basic Usage
 
 ```python
 from firewall_api.FirewallAPI import Firewall
+from dotenv import load_dotenv
+import os
+
+# Load environment variables
+load_dotenv()
 
 # Initialize the connection
 firewall = Firewall(
-    username="admin",
-    password="your_password",
-    hostname="192.168.1.1"
+    username=os.getenv("FIREWALL_USERNAME"),
+    password=os.getenv("FIREWALL_PASSWORD"),
+    hostname=os.getenv("FIREWALL_HOSTNAME"),
+    port=int(os.getenv("FIREWALL_PORT", "4444")),
+    certificate_verify=os.getenv("FIREWALL_CERTIFICATE_VERIFY", "False").lower() == "true",
+    timeout=int(os.getenv("FIREWALL_TIMEOUT", "30")),
+    max_retries=int(os.getenv("FIREWALL_MAX_RETRIES", "3")),
+    retry_backoff=float(os.getenv("FIREWALL_RETRY_BACKOFF", "0.5"))
 )
 
 # Use context manager for automatic session cleanup
-with Firewall(username="admin", password="your_password", hostname="192.168.1.1") as firewall:
+with Firewall(
+    username=os.getenv("FIREWALL_USERNAME"),
+    password=os.getenv("FIREWALL_PASSWORD"),
+    hostname=os.getenv("FIREWALL_HOSTNAME")
+) as firewall:
     # Your operations here
     response = firewall.read("FirewallRule")
     print(response)
@@ -39,8 +102,9 @@ Firewall(
     hostname: str,
     port: int = 4444,
     certificate_verify: bool = False,
-    password_encrypted: bool = False,
-    timeout: int = 30
+    timeout: int = 30,
+    max_retries: int = 3,
+    retry_backoff: float = 0.5
 )
 ```
 
@@ -50,8 +114,9 @@ Firewall(
 - `hostname` (str): Hostname or IP address of the firewall
 - `port` (int, optional): Port number for the API. Default is 4444
 - `certificate_verify` (bool, optional): Whether to verify SSL certificates. Default is False
-- `password_encrypted` (bool, optional): Whether the password is already encrypted. Default is False
 - `timeout` (int, optional): Request timeout in seconds. Default is 30
+- `max_retries` (int, optional): Maximum number of retry attempts. Default is 3
+- `retry_backoff` (float, optional): Delay between retry attempts. Default is 0.5
 
 ### Create
 
@@ -184,49 +249,6 @@ response = firewall.delete("FirewallRule", "Demo Rule")
 response = firewall.delete("IPHost", "TestHost")
 ```
 
-### Batch Operation
-
-Performs multiple operations in a single batch.
-
-```python
-batch_operation(operations: List[Dict[str, Any]], debug: bool = False) -> List[ResponseType]
-```
-
-**Parameters:**
-- `operations` (List[Dict[str, Any]]): List of operation dictionaries
-- `debug` (bool, optional): Whether to print debug information. Default is False
-
-**Returns:**
-- List of response dictionaries
-
-**Example:**
-```python
-# Perform multiple operations in a batch
-operations = [
-    {
-        "action": "create",
-        "entity": "IPHost",
-        "entity_data": {
-            "Name": "BatchHost1",
-            "IPFamily": "IPv4",
-            "HostType": "IP",
-            "IPAddress": "192.168.1.10"
-        }
-    },
-    {
-        "action": "read",
-        "entity": "FirewallRule",
-        "filter_value": "DNAT"
-    },
-    {
-        "action": "delete",
-        "entity": "IPHost",
-        "filter_value": "BatchHost1"
-    }
-]
-results = firewall.batch_operation(operations, debug=True)
-```
-
 ### Close
 
 Closes the session with the firewall.
@@ -292,202 +314,37 @@ with Firewall(username="admin", password="password", hostname="192.168.1.1") as 
     # Session is automatically closed when exiting the with block
 ```
 
-## Advanced Examples
+## Examples
 
-### Loading Credentials from JSON
+Check the `Examples` directory for comprehensive examples of using the API:
 
-```python
-import json
+- Basic usage and authentication
+- CRUD operations for various entities
+- IP address and host management
+- Service and rule management
+- Security features like brute force protection
+- Data export functionality
 
-# Load credentials from a JSON file
-with open("firewall_access.json", "r") as file:
-    firewall_info = json.load(file)
+## Contributing
 
-# Initialize the firewall with loaded credentials
-firewall = Firewall(
-    username=firewall_info["username"],
-    password=firewall_info["password"],
-    hostname=firewall_info["firewall_ip"],
-    port=firewall_info["port"],
-    certificate_verify=False,
-    password_encrypted=firewall_info["password_encrypted"]
-)
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add some amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
-# Test connection
-print(f"Connection Test: {firewall.read('Login')}")
-```
+## License
 
-### Managing IP Hosts and Groups
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-```python
-# Create an IP Host Group
-prefix = "MSS_"
-entity_type = "IPHostGroup"
-ip_host_group_name = prefix + "IPHost_Group"
-entity_data = {
-    "Name": ip_host_group_name,
-    "IPFamily": "IPv4",
-    "Description": "Created by Firewall API",
-}
-response = firewall.create(entity_type, entity_data)
-print(f"Create IP Host Group: {response}")
+## Security
 
-# Create an FQDN Host Group
-entity_type = "FQDNHostGroup"
-fqdn_group_name = prefix + "FQDN_Group"
-entity_data = {
-    "Name": fqdn_group_name,
-    "IPFamily": "IPv4",
-    "Description": "Created by Firewall API",
-}
-response = firewall.create(entity_type, entity_data)
-print(f"Create FQDN Host Group: {response}")
+- Always use encrypted passwords in production
+- Enable SSL certificate verification in production
+- Store credentials securely using environment variables
+- Follow the principle of least privilege when creating API users
+- Regularly audit firewall rules and configurations
 
-# Search for IP Hosts with a specific name pattern
-entity_name = "RW"
-entity_type = "IPHost"
-response = firewall.read(entity_type, entity_name, LIKE)
-for index, item in enumerate(response["data"], start=1):
-    print(f"{index:03} : {item}")
-```
+## Support
 
-### Creating Services
-
-```python
-# Create TCP/UDP services
-service_data = {
-    "Name": "Custom TCP/UDP Service",
-    "Description": "Custom service created via API",
-    "Type": "TCPorUDP",
-    "ServiceDetails": {
-        "ServiceDetail": [
-            {"SourcePort": "1:65535", "DestinationPort": "8080", "Protocol": "TCP"},
-            {"SourcePort": "1:65535", "DestinationPort": "8443", "Protocol": "TCP"},
-            {"SourcePort": "1:65535", "DestinationPort": "53", "Protocol": "UDP"}
-        ]
-    }
-}
-response = firewall.create("Services", service_data)
-print(f"Create Service: {response}")
-
-# Create a service with a single port
-single_port_service = {
-    "Name": "Single Port Service",
-    "Description": "Service with a single port",
-    "Type": "TCPorUDP",
-    "ServiceDetails": {
-        "ServiceDetail": {
-            "SourcePort": "1:65535", 
-            "DestinationPort": "443", 
-            "Protocol": "TCP"
-        }
-    }
-}
-response = firewall.create("Services", single_port_service)
-print(f"Create Single Port Service: {response}")
-
-# Create a service with port range
-port_range_service = {
-    "Name": "Port Range Service",
-    "Description": "Service with a port range",
-    "Type": "TCPorUDP",
-    "ServiceDetails": {
-        "ServiceDetail": {
-            "SourcePort": "1:65535", 
-            "DestinationPort": "1024:2048", 
-            "Protocol": "TCP"
-        }
-    }
-}
-response = firewall.create("Services", port_range_service)
-print(f"Create Port Range Service: {response}")
-```
-
-### Exporting Firewall Settings
-
-```python
-import os
-import csv
-
-# Create export directory if it doesn't exist
-exports_path = "Exports/Firewall"
-if not os.path.exists(exports_path):
-    os.makedirs(exports_path)
-
-# Export firewall rules to CSV
-rules = firewall.read("FirewallRule")["data"]
-if rules:
-    with open(f"{exports_path}/firewall_rules.csv", "w", newline="") as csvfile:
-        # Extract field names from the first rule
-        fieldnames = list(rules[0].keys())
-        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-        writer.writeheader()
-        for rule in rules:
-            writer.writerow(rule)
-    print(f"Exported {len(rules)} firewall rules to {exports_path}/firewall_rules.csv")
-```
-
-### Helper Functions for Common Operations
-
-```python
-def create_entity(firewall, entity_type, entity_data, print_data=False, print_result=False):
-    """
-    Create and log an entity.
-    
-    :param firewall: Firewall instance
-    :param entity_type: The type of entity to create
-    :param entity_data: The data for the entity to create
-    :param print_data: Boolean to print the data being sent (default is False)
-    :param print_result: Boolean to print the result of the operation (default is False)
-    :return: The response from the create operation
-    """
-    if print_data:
-        print(f"Creating {entity_type} with data: {entity_data}")
-    response = firewall.create(entity_type, entity_data)
-    if print_result:
-        print(f"CREATE :: {response}\n")
-    return response
-
-def update_entity(firewall, entity_type, entity_data, print_data=False, print_result=False):
-    """
-    Update and log an entity.
-    
-    :param firewall: Firewall instance
-    :param entity_type: The type of entity to update
-    :param entity_data: The data for the entity to update
-    :param print_data: Boolean to print the data being sent (default is False)
-    :param print_result: Boolean to print the result of the operation (default is False)
-    :return: The response from the update operation
-    """
-    if print_data:
-        print(f"Updating {entity_type} with data: {entity_data}")
-    response = firewall.update(entity_type, entity_data)
-    if print_result:
-        print(f"UPDATE :: {response}\n")
-    return response
-
-def read_entity(firewall, entity_type, filter_value=None, filter_selector=LIKE, filter_key=None, print_result=False):
-    """
-    Read and log an entity.
-    
-    :param firewall: Firewall instance
-    :param entity_type: The type of entity to read
-    :param filter_value: Value to filter by (default is None)
-    :param filter_selector: Filter criteria (default is LIKE)
-    :param filter_key: Field to filter on (default is None)
-    :param print_result: Boolean to print the result of the operation (default is False)
-    :return: The response from the read operation
-    """
-    response = firewall.read(entity_type, filter_value, filter_selector, filter_key)
-    if print_result:
-        print(f"READ :: {response}\n")
-    return response
-
-# Example usage of helper functions
-ip_host_data = {
-    "Name": "TestHost",
-    "IPFamily": "IPv4",
-    "HostType": "IP",
-    "IPAddress": "192.168.1.100"
-}
-create_entity(firewall, "IPHost", ip_host_data, print_result=True)
+For support, please open an issue in the GitHub repository or contact the maintainers.
