@@ -5,6 +5,7 @@ import json
 import ipaddress
 import csv
 
+
 # Helper functions for entity operations
 def create_entity(firewall, entity_type, entity_data, print_data=False, print_result=False):
     """
@@ -23,6 +24,7 @@ def create_entity(firewall, entity_type, entity_data, print_data=False, print_re
         print(f"CREATE :: {response}\n")
     return response
 
+
 def update_entity(firewall, entity_type, entity_data, print_data=False, print_result=False):
     """
     Update and log an entity.
@@ -39,6 +41,7 @@ def update_entity(firewall, entity_type, entity_data, print_data=False, print_re
     if print_result:
         print(f"UPDATE :: {response}\n")
     return response
+
 
 def read_entity(firewall, entity_type, filter_value=None, filter_selector=LIKE, filter_key=None, print_data=False, print_result=False):
     """
@@ -57,6 +60,7 @@ def read_entity(firewall, entity_type, filter_value=None, filter_selector=LIKE, 
         print(f"READ :: {response}\n")
     return response
 
+
 # Initialize the client
 firewall = Firewall(
     username="admin",
@@ -66,18 +70,11 @@ firewall = Firewall(
     certificate_verify=False,  # Set to True in production
     timeout=30,  # Default timeout in seconds
     max_retries=3,  # Number of retry attempts
-    retry_backoff=0.5  # Backoff factor for retries
+    retry_backoff=0.5,  # Backoff factor for retries
 )
 
 # Use as a context manager (recommended)
-with Firewall(
-    username="admin",
-    password="password",
-    hostname="firewall.example.com",
-    port=4444,
-    certificate_verify=False,
-    timeout=30
-) as fw:
+with Firewall(username="admin", password="password", hostname="firewall.example.com", port=4444, certificate_verify=False, timeout=30) as fw:
     # Test connection
     print("=== Testing Connection ===")
     response = fw.read("Login")
@@ -115,9 +112,10 @@ with Firewall(
     # Update firewall rule to disable it
     print("=== Disabling Brute Force Protection Rule ===")
     update_data = {
+        "Name": "Block Brute Force Attempts",
         "Status": "Disable",
     }
-    response = update_entity(fw, "FirewallRule", update_data, entity_name="Block Brute Force Attempts", print_data=True, print_result=True)
+    response = update_entity(fw, "FirewallRule", update_data, print_data=True, print_result=True)
 
     # Read all IPHosts
     print("=== Reading All IPHosts ===")
@@ -131,4 +129,4 @@ with Firewall(
     # Delete Firewall Rule
     print("=== Deleting Brute Force Protection Rule ===")
     response = fw.delete("FirewallRule", "Block Brute Force Attempts")
-    print(f"DELETE :: {response}\n") 
+    print(f"DELETE :: {response}\n")

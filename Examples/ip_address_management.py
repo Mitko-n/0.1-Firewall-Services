@@ -9,18 +9,11 @@ firewall = Firewall(
     certificate_verify=False,  # Set to True in production
     timeout=30,  # Default timeout in seconds
     max_retries=3,  # Number of retry attempts
-    retry_backoff=0.5  # Backoff factor for retries
+    retry_backoff=0.5,  # Backoff factor for retries
 )
 
 # Use as a context manager (recommended)
-with Firewall(
-    username="admin",
-    password="password",
-    hostname="firewall.example.com",
-    port=4444,
-    certificate_verify=False,
-    timeout=30
-) as fw:
+with Firewall(username="admin", password="password", hostname="firewall.example.com", port=4444, certificate_verify=False, timeout=30) as fw:
     # IPHost Example
     print("=== IPHost Example ===")
     entity_type = "IPHost"
@@ -56,4 +49,4 @@ with Firewall(
     }
 
     print("CREATE :: ", fw.create(entity_type, entity_data))
-    print("READ   :: ", fw.read(entity_type, entity_name)) 
+    print("READ   :: ", fw.read(entity_type, entity_name))

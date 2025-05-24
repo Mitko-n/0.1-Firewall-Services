@@ -9,18 +9,11 @@ firewall = Firewall(
     certificate_verify=False,  # Set to True in production
     timeout=30,  # Default timeout in seconds
     max_retries=3,  # Number of retry attempts
-    retry_backoff=0.5  # Backoff factor for retries
+    retry_backoff=0.5,  # Backoff factor for retries
 )
 
 # Use as a context manager (recommended)
-with Firewall(
-    username="admin",
-    password="password",
-    hostname="firewall.example.com",
-    port=4444,
-    certificate_verify=False,
-    timeout=30
-) as fw:
+with Firewall(username="admin", password="password", hostname="firewall.example.com", port=4444, certificate_verify=False, timeout=30) as fw:
     # Create a firewall rule
     print("=== Creating Firewall Rule ===")
     entity_data = {
@@ -82,4 +75,4 @@ with Firewall(
     response = fw.delete("FirewallRule", rule_name)
     print(f"Deleting rule: {rule_name}")
     print("Code:", response["status"], "Text:", response["message"])
-    print("Result:", response) 
+    print("Result:", response)
