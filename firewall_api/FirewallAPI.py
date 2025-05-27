@@ -9,7 +9,7 @@ import warnings
 import sys
 
 # Configure warning filter to show only the message
-warnings.filterwarnings('always', category=UserWarning)
+warnings.filterwarnings("always", category=UserWarning)
 warnings.showwarning = lambda message, category, filename, lineno, file=None, line=None: print(f"{category.__name__}: {message}")
 
 EQ = "="
@@ -19,17 +19,7 @@ LIKE = "like"
 
 class Firewall:
 
-    def __init__(
-        self,
-        username,
-        password,
-        hostname,
-        port=4444,
-        certificate_verify=True,
-        timeout=30,
-        max_retries=3,
-        retry_backoff=0.5,
-    ):
+    def __init__(self, username, password, hostname, port=4444, certificate_verify=True, timeout=30, max_retries=3, retry_backoff=0.5):
         # Validate username and password
         if not username or not isinstance(username, str):
             raise ValueError("Username is required and must be a text value")
@@ -39,7 +29,7 @@ class Firewall:
         # Validate hostname
         if not self._is_valid_hostname(hostname):
             raise ValueError("Invalid hostname format. Please provide a valid hostname or IP address")
-        
+
         # Validate port
         try:
             port = int(port)
@@ -64,16 +54,16 @@ class Firewall:
 
         self.url = f"https://{hostname}:{port}/webconsole/APIController"
         self.xml_login = f"""<Login><Username>{username}</Username><Password>{password}</Password></Login>"""
-        
+
         self.session = requests.Session()
-        
+
         # Handle certificate verification
         if certificate_verify:
             self.session.verify = True
             warnings.warn(
                 "Certificate verification is active. For self-signed certificates,\n "
                 "either disable verification or add the certificate to trusted certificates.",
-                UserWarning
+                UserWarning,
             )
         else:
             self.session.verify = False
@@ -81,9 +71,9 @@ class Firewall:
             warnings.warn(
                 "Certificate verification is disabled. For production environments,\n "
                 "it's recommended to use proper SSL certificates instead of disabling verification.",
-                UserWarning
+                UserWarning,
             )
-        
+
         retry_strategy = Retry(
             total=max_retries,
             backoff_factor=retry_backoff,
@@ -91,15 +81,15 @@ class Firewall:
         )
         adapter = HTTPAdapter(max_retries=retry_strategy)
         self.session.mount("https://", adapter)
-        
+
         self.headers = {
             "Accept": "application/xml",
             "X-Content-Type-Options": "nosniff",
             "X-Frame-Options": "DENY",
             "X-XSS-Protection": "1; mode=block",
-            "Strict-Transport-Security": "max-age=31536000; includeSubDomains"
+            "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
         }
-        
+
         self.closed = False
         self.timeout = timeout
 
@@ -114,7 +104,7 @@ class Firewall:
     def _validate_url(self, url):
         try:
             result = urlparse(url)
-            return all([result.scheme, result.netloc]) and result.scheme == 'https'
+            return all([result.scheme, result.netloc]) and result.scheme == "https"
         except:
             return False
 
@@ -208,12 +198,7 @@ class Firewall:
         full_request_xml = f"<Request>{self.xml_login}{xml_action}</Request>"
 
         try:
-            response = self.session.post(
-                self.url,
-                headers=self.headers,
-                data={"reqxml": full_request_xml},
-                timeout=self.timeout
-            )
+            response = self.session.post(self.url, headers=self.headers, data={"reqxml": full_request_xml}, timeout=self.timeout)
             response.raise_for_status()
             return self._format_xml_response(xmltodict.parse(response.content.decode()), entity)
         except requests.exceptions.SSLError as e:

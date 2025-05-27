@@ -1,174 +1,195 @@
-# Firewall API Client Library
+# Firewall API Client
 
-A Python client library for managing firewall configurations through a secure XML API interface. This library provides a comprehensive set of operations for managing firewall rules, IP addresses, services, and other firewall entities.
+A Python client library for interacting with Sophos Firewall devices via their XML API. This library provides a simple and intuitive interface for managing firewall configurations, rules, services, and more.
 
 ## Features
 
-- Secure HTTPS communication with firewalls
-- Comprehensive CRUD operations (Create, Read, Update, Delete)
-- SSL/TLS certificate handling
-- Input validation and error handling
-- Context manager support for automatic session cleanup
+- Simple and intuitive API for firewall management
+- Support for CRUD operations on firewall entities
+- Automatic session management with context manager
+- Configurable retry mechanism for failed requests
+- SSL certificate verification options
+- Comprehensive error handling
+- Detailed logging capabilities
+
+## Requirements
+
+- Python 3.7 or higher
+- Network access to the firewall device
+- Valid credentials for the firewall API
 
 ## Installation
 
 ```bash
+# Clone the repository
+git clone https://github.com/yourusername/firewall-api.git
+cd firewall-api
+
+# Install dependencies
 pip install -r requirements.txt
 ```
 
-Required dependencies:
-- requests
-- xmltodict
-- urllib3
+## Basic Usage Examples
 
-## Basic Usage
+### Initialize Connection
 
 ```python
-from firewall_api import Firewall, LIKE, NOT, EQ
+from firewall_api import Firewall
 
-# Initialize the connection
+# Basic initialization
 firewall = Firewall(
     username="admin",
     password="your_password",
-    hostname="firewall.example.com",
+    hostname="192.168.1.1",
     port=4444,
-    certificate_verify=False,  # Set to True in production
-    timeout=30
+    certificate_verify=False
 )
 
 # Using context manager (recommended)
-with Firewall(username="admin",password="your_password",hostname="firewall.example.com") as fw:
-    # Read all firewall rules
-    response = fw.read("FirewallRule")
-    print(response)
+with Firewall(
+    username="admin",
+    password="your_password",
+    hostname="192.168.1.1"
+) as fw:
+    # Your operations here
+    pass
 ```
 
-## API Reference
-
-### Constructor
+### Create Operations
 
 ```python
-Firewall(
-    username: str,
-    password: str,
-    hostname: str,
-    port: int = 4444,
-    certificate_verify: bool = True,
-    timeout: int = 30,
-    max_retries: int = 3,
-    retry_backoff: float = 0.5
-)
-```
-
-### Methods
-
-#### Create
-```python
-create(entity: str, entity_data: dict) -> dict
-```
-Creates a new entity in the firewall.
-
-```python
-# Example: Create an IP host
-ip_data = {
-    "Name": "TestHost",
+# Create a new IP Host
+ip_host = {
+    "Name": "Server1",
     "IPFamily": "IPv4",
     "HostType": "IP",
     "IPAddress": "192.168.1.100"
 }
-response = firewall.create("IPHost", ip_data)
+response = firewall.create("IPHost", ip_host)
+
+# Create a new service
+service = {
+    "Name": "Custom_HTTP",
+    "Type": "TCP",
+    "Port": "8080"
+}
+response = firewall.create("Services", service)
+
+# Create a firewall rule
+rule = {
+    "Name": "Allow_Web",
+    "Status": "Enable",
+    "Position": "Top",
+    "PolicyType": "Network",
+    "NetworkPolicy": {
+        "Action": "Accept",
+        "SourceZones": {"Zone": ["LAN"]},
+        "DestinationZones": {"Zone": ["WAN"]},
+        "Services": {"Service": ["HTTP", "HTTPS"]}
+    }
+}
+response = firewall.create("FirewallRule", rule)
 ```
 
-#### Read
-```python
-read(
-    entity: str,
-    filter_value: str = None,
-    filter_criteria: str = LIKE,
-    filter_key_field: str = None
-) -> dict
-```
-Retrieves entities from the firewall with optional filtering.
+### Read Operations
 
 ```python
-# Example: Read all firewall rules containing "DNAT"
-response = firewall.read("FirewallRule", "DNAT", LIKE)
+# Get all firewall rules
+rules = firewall.read("FirewallRule")
+
+# Get specific IP host
+host = firewall.read("IPHost", "Server1", "=")
+
+# Search services containing "HTTP"
+services = firewall.read("Services", "HTTP", "like")
 ```
 
-#### Update
-```python
-update(
-    entity: str,
-    entity_data: dict,
-    entity_name: str = None,
-    entity_name_key: str = "Name"
-) -> dict
-```
-Updates an existing entity in the firewall.
+### Update Operations
 
 ```python
-# Example: Update a firewall rule
-update_data = {
-    "Name": "ExistingRule",
+# Update an IP host
+update_host = {
+    "Name": "Server1",
+    "IPAddress": "192.168.1.200"
+}
+response = firewall.update("IPHost", update_host)
+
+# Enable a firewall rule
+update_rule = {
+    "Name": "Allow_Web",
     "Status": "Enable"
 }
-response = firewall.update("FirewallRule", update_data)
+response = firewall.update("FirewallRule", update_rule)
 ```
 
-#### Delete
-```python
-delete(
-    entity: str,
-    filter_value: str,
-    filter_criteria: str = EQ,
-    filter_key_field: str = None
-) -> dict
-```
-Deletes an entity from the firewall.
+### Delete Operations
 
 ```python
-# Example: Delete an IP host
-response = firewall.delete("IPHost", "TestHost")
+# Delete an IP host
+response = firewall.delete("IPHost", "Server1")
+
+# Delete a firewall rule
+response = firewall.delete("FirewallRule", "Allow_Web")
 ```
 
-### Filter Constants
+## Error Handling
 
-- `EQ`: Exact match (=)
-- `NOT`: Not equal (!=)
-- `LIKE`: Partial match (like)
+```python
+try:
+    with Firewall(
+        username="admin",
+        password="password",
+        hostname="192.168.1.1",
+        certificate_verify=False
+    ) as fw:
+        response = fw.create("IPHost", ip_host)
+        if response["status"] != "216":
+            print(f"Operation failed: {response['message']}")
+except ValueError as e:
+    print(f"Invalid parameters: {e}")
+except Exception as e:
+    print(f"Connection failed: {e}")
+```
 
 ## Response Format
 
 All operations return a dictionary with the following structure:
+
 ```python
 {
-    "status": str,    # HTTP-like status code
-    "message": str,   # Human-readable message
-    "data": list     # List of results (if any)
+    "status": str,      # Status code ("216" for success)
+    "message": str,     # Human-readable message
+    "data": list       # List of entities or empty list
 }
 ```
 
 Common status codes:
-- "200": Success
-- "216": Operation successful with data
+- "216": Success
 - "400": Bad request
 - "401": Authentication failure
-- "404": Not found
-- "495": SSL/TLS error
-- "500": Server error
-- "503": Connection error
+- "404": Resource not found
+- "495": SSL certificate error
+- "503": Service unavailable
 - "504": Timeout
-- "526": No matching records
 
-## Security Considerations
+## Security Notes
 
-1. Always use HTTPS (enforced by the library)
-2. Enable certificate verification in production environments
-3. Use appropriate timeout values
-4. Implement proper error handling
-5. Store credentials securely
-6. Use context managers to ensure proper session cleanup
+1. SSL Certificate Verification:
+   ```python
+   # For production (recommended)
+   firewall = Firewall(..., certificate_verify=True)
+   
+   # For testing/self-signed certificates
+   firewall = Firewall(..., certificate_verify=False)
+   ```
 
-## License
+2. Always use context managers for proper session cleanup:
+   ```python
+   with Firewall(...) as fw:
+       # Your code here
+       pass  # Session automatically closed
+   ```
 
-This project is licensed under the MIT License.
+## Support
+
+For support, please open an issue in the GitHub repository or contact the maintainers.
