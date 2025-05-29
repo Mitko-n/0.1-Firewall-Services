@@ -23,8 +23,6 @@ A Python client library for interacting with firewall devices via their XML API.
 ### Using pip
 
 ```bash
-# Install from PyPI
-pip install firewall-api
 
 # Install from source
 git clone https://github.com/yourusername/firewall-api.git
