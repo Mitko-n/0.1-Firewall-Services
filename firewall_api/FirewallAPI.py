@@ -1,12 +1,19 @@
-import requests
-import xmltodict
-import urllib3
+# Standard library imports
 import re
-from urllib.parse import urlparse
+import sys
+import urllib.parse
+import warnings
+import xml.sax.saxutils
+
+# Third-party imports
+import requests
+import urllib3
+import xmltodict
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
-import warnings
-import sys
+
+# Suppress SyntaxWarning for invalid escape sequences
+warnings.filterwarnings("ignore", category=SyntaxWarning, message=".*invalid escape sequence.*")
 
 # Configure warning filter to show only the message
 warnings.filterwarnings("always", category=UserWarning)
@@ -53,7 +60,10 @@ class Firewall:
             raise ValueError("Retry backoff must be a positive number")
 
         self.url = f"https://{hostname}:{port}/webconsole/APIController"
-        self.xml_login = f"""<Login><Username>{username}</Username><Password>{password}</Password></Login>"""
+
+        # Escape special characters in password for XML
+        escaped_password = xml.sax.saxutils.escape(password)
+        self.xml_login = f"""<Login><Username>{username}</Username><Password>{escaped_password}</Password></Login>"""
 
         self.session = requests.Session()
 
@@ -103,7 +113,7 @@ class Firewall:
 
     def _validate_url(self, url):
         try:
-            result = urlparse(url)
+            result = urllib.parse.urlparse(url)
             return all([result.scheme, result.netloc]) and result.scheme == "https"
         except:
             return False
