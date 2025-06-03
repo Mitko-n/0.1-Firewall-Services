@@ -1,33 +1,28 @@
-import csv
-import json
-
+import configparser
 import os
 import sys
-sys.path.insert(0, os.getcwd()) # For Script
+import csv
+import ipaddress
 
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # Add parent directory to path
 
 from firewall_api import Firewall, LIKE, EQ, NOT
 
+# Read configuration
+config = configparser.ConfigParser(interpolation=None)
+config_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'Credentials', 'config.ini')
+config.read(config_path)
 
+# Get firewall credentials from config
+username = config['Firewall']['username']
+password = config['Firewall']['password']
+firewall_ip = config['Firewall']['firewall_ip']
+port = config['Firewall'].getint('port', fallback=4444)
+certificate_verify = config['Firewall'].getboolean('certificate_verify', fallback=False)
+timeout = config['Firewall'].getint('timeout', fallback=30)
 
-# Firewall Credentials
-# JSON File
-# {
-#     "firewall_ip": "<FIREWALL_IP_ADDRESS>",
-#     "username": "<USER_NAME>",
-#     "port" : "<FIREWALL_PORT>"
-#     "password": "<PASSWORD",
-#     "password_encrypted": <true|false>
-# }
+firewall = Firewall(username, password, firewall_ip, port, certificate_verify, timeout)
 
-firewall_info = json.load(open("./Credentials/firewall_access.json"))
-username = firewall_info["username"]
-password = firewall_info["password"]
-firewall_ip = firewall_info["firewall_ip"]
-port = firewall_info["port"]
-
-
-firewall = Firewall(username, password, firewall_ip, port, certificate_verify=False)
 
 print("CREATE :: ", firewall.create("IPHost", {"Name": "TEST 1", "IPFamily": "IPv4", "HostType": "IP", "IPAddress": "172.16.17.100"}))
 print("CREATE :: ", firewall.create("IPHost", {"Name": "TEST 2", "IPFamily": "IPv4", "HostType": "IP", "IPAddress": "172.16.17.100"}))
