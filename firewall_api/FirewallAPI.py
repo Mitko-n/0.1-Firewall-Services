@@ -1,32 +1,40 @@
-# Standard library imports
-import re
-import sys
-import urllib.parse
-import warnings
-import xml.sax.saxutils
+# Standard library imports for core functionality
+import re                  # For hostname validation
+import urllib.parse       # For URL parsing and validation
+import warnings          # For handling warning messages
+import xml.sax.saxutils  # For XML string escaping
 
-# Third-party imports
-import requests
-import urllib3
-import xmltodict
-from requests.adapters import HTTPAdapter
-from urllib3.util.retry import Retry
+# Third-party imports for HTTP and XML operations
+import requests          # For HTTP requests
+import urllib3          # For HTTP/HTTPS related utilities
+import xmltodict        # For XML-dict conversion
+from requests.adapters import HTTPAdapter      # For HTTP connection management
+from urllib3.util.retry import Retry          # For retry functionality
 
+# Configure warnings handling
 # Suppress SyntaxWarning for invalid escape sequences
 warnings.filterwarnings("ignore", category=SyntaxWarning, message=".*invalid escape sequence.*")
-
-# Configure warning filter to show only the message
 warnings.filterwarnings("always", category=UserWarning)
 warnings.showwarning = lambda message, category, filename, lineno, file=None, line=None: print(f"{category.__name__}: {message}")
 
-EQ = "="
-NOT = "!="
-LIKE = "like"
+# Filter comparison operators for API queries
+EQ = "="      # Equals operator
+NOT = "!="    # Not equals operator
+LIKE = "like" # Pattern matching operator
 
 
 class Firewall:
+    """
+    A class to interact with Sophos Firewall API.
+    Handles authentication, CRUD operations, and connection management.
+    """
 
     def __init__(self, username, password, hostname, port=4444, certificate_verify=True, timeout=30, max_retries=3, retry_backoff=0.5):
+        """
+        Initialize firewall connection with authentication and connection parameters.
+        Validates all input parameters and sets up the HTTP session with retry mechanism.
+        """
+        # Input validation section
         # Validate username and password
         if not username or not isinstance(username, str):
             raise ValueError("Username is required and must be a text value")
@@ -59,39 +67,19 @@ class Firewall:
         if not isinstance(retry_backoff, (int, float)) or retry_backoff < 0:
             raise ValueError("Retry backoff must be a positive number")
 
+        # Setup base URL for API endpoint
         self.url = f"https://{hostname}:{port}/webconsole/APIController"
 
-        # Escape special characters in password for XML
+        # Create XML login credentials with escaped special characters
         escaped_password = xml.sax.saxutils.escape(password)
         self.xml_login = f"""<Login><Username>{username}</Username><Password>{escaped_password}</Password></Login>"""
 
+        # Initialize HTTP session with retry mechanism
         self.session = requests.Session()
+        self._setup_certificate_verification(certificate_verify)
+        self._setup_retry_strategy(max_retries, retry_backoff)
 
-        # Handle certificate verification
-        if certificate_verify:
-            self.session.verify = True
-            warnings.warn(
-                "Certificate verification is active. For self-signed certificates,\n "
-                "either disable verification or add the certificate to trusted certificates.",
-                UserWarning,
-            )
-        else:
-            self.session.verify = False
-            urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-            warnings.warn(
-                "Certificate verification is disabled. For production environments,\n "
-                "it's recommended to use proper SSL certificates instead of disabling verification.",
-                UserWarning,
-            )
-
-        retry_strategy = Retry(
-            total=max_retries,
-            backoff_factor=retry_backoff,
-            status_forcelist=[500, 502, 503, 504],
-        )
-        adapter = HTTPAdapter(max_retries=retry_strategy)
-        self.session.mount("https://", adapter)
-
+        # Configure secure HTTP headers
         self.headers = {
             "Accept": "application/xml",
             "X-Content-Type-Options": "nosniff",
@@ -103,28 +91,45 @@ class Firewall:
         self.closed = False
         self.timeout = timeout
 
-    def _is_valid_hostname(self, hostname):
-        if len(hostname) > 255:
-            return False
-        if hostname[-1] == ".":
-            hostname = hostname[:-1]
-        allowed = re.compile(r"(?!-)[A-Z\d-]{1,63}(?<!-)$", re.IGNORECASE)
-        return all(allowed.match(x) for x in hostname.split("."))
+    def _setup_certificate_verification(self, certificate_verify):
+        """Configure SSL certificate verification behavior"""
+        if certificate_verify:
+            self.session.verify = True # type: ignore
+            warnings.warn(
+                "Certificate verification is active. For self-signed certificates,\n "
+                "either disable verification or add the certificate to trusted certificates.",
+                UserWarning,
+            )
+        else:
+            self.session.verify = False # type: ignore
+            urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+            warnings.warn(
+                "Certificate verification is disabled. For production environments,\n "
+                "it's recommended to use proper SSL certificates instead of disabling verification.",
+                UserWarning,
+            )
 
-    def _validate_url(self, url):
-        try:
-            result = urllib.parse.urlparse(url)
-            return all([result.scheme, result.netloc]) and result.scheme == "https"
-        except:
-            return False
+    def _setup_retry_strategy(self, max_retries, retry_backoff):
+        """Set up automatic retry mechanism for failed requests"""
+        retry_strategy = Retry(
+            total=max_retries,
+            backoff_factor=retry_backoff,
+            status_forcelist=[500, 502, 503, 504],
+        )
+        adapter = HTTPAdapter(max_retries=retry_strategy)
+        self.session.mount("https://", adapter) # type: ignore
 
+    # Resource management methods
     def __enter__(self):
+        """Context manager entry point"""
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
+        """Context manager exit point - ensures proper cleanup"""
         self.close()
 
     def close(self):
+        """Clean up resources and close the session"""
         if not self.closed and self.session is not None:
             self.session.close()
             self.session = None
@@ -140,7 +145,96 @@ class Firewall:
             "data": [],
         }
 
+    # CRUD Operations
+    def create(self, entity, entity_data):
+        """Create a new entity in the firewall"""
+        if not isinstance(entity_data, dict):
+            return {
+                "status": "400",
+                "message": "entity_data must be a dictionary.",
+                "data": [],
+            }
+
+        if entity == "Services":
+            entity_data = self._remove_spaces(entity_data)
+
+        xml_action = f"""<Set operation="add"><{entity}>{xmltodict.unparse(entity_data, full_document=False)}</{entity}></Set>"""
+        return self._perform_action(xml_action, entity)
+
+    def read(self, entity, filter_value=None, filter_criteria=LIKE, filter_key_field=None):
+        """Read entity/entities matching the filter criteria"""
+        inner_xml = ""
+        if filter_value:
+            key_field = filter_key_field or "Name"
+            inner_xml = f"""<Filter><key name="{key_field}" criteria="{filter_criteria}">{filter_value}</key></Filter>"""
+
+        xml_action = f"""<Get><{entity}>{inner_xml}</{entity}></Get>"""
+        return self._perform_action(xml_action, entity)
+
+    def update(self, entity, entity_data, entity_name=None, entity_name_key="Name"):
+        """Update an existing entity with new data"""
+        if entity_name is None:
+            if entity_name_key not in entity_data:
+                return {
+                    "status": "400",
+                    "message": f"Entity data must contain '{entity_name_key}' field or provide entity_name parameter.",
+                    "data": [],
+                }
+            entity_name = entity_data[entity_name_key]
+
+        existing_data = self.read(entity, entity_name, EQ, entity_name_key)
+        if existing_data["status"] != "216" or not existing_data["data"]:
+            return {
+                "status": "404",
+                "message": "Entity not found for update.",
+                "data": [],
+            }
+        if len(existing_data["data"]) > 1:
+            return {
+                "status": "400",
+                "message": "Multiple entities found for update. Provide a unique entity_name.",
+                "data": [],
+            }
+
+        current_entity = existing_data["data"][0]
+        updated_data = self._merge_entities(current_entity, entity_data)
+
+        xml_action = f"""<Set operation="update"><{entity}>{xmltodict.unparse(updated_data, full_document=False)}</{entity}></Set>"""
+        return self._perform_action(xml_action, entity)
+
+    def delete(self, entity, filter_value, filter_criteria=EQ, filter_key_field=None):
+        """Delete an entity matching the filter criteria"""
+        if entity == "FirewallRule":
+            inner_xml = f"<Name>{filter_value}</Name>"
+        elif entity == "LocalServiceACL":
+            inner_xml = f"<RuleName>{filter_value}</RuleName>"
+        else:
+            key_field = filter_key_field or "Name"
+            inner_xml = f'<Filter><key name="{key_field}" criteria="{filter_criteria}">{filter_value}</key></Filter>'
+
+        xml_action = f"""<Remove><{entity}>{inner_xml}</{entity}></Remove>"""
+        return self._perform_action(xml_action, entity)
+
+    # Helper methods
+    def _is_valid_hostname(self, hostname):
+        """Validate hostname format"""
+        if len(hostname) > 255:
+            return False
+        if hostname[-1] == ".":
+            hostname = hostname[:-1]
+        allowed = re.compile(r"(?!-)[A-Z\d-]{1,63}(?<!-)$", re.IGNORECASE)
+        return all(allowed.match(x) for x in hostname.split("."))
+
+    def _validate_url(self, url):
+        """Ensure URL is well-formed and uses HTTPS"""
+        try:
+            result = urllib.parse.urlparse(url)
+            return all([result.scheme, result.netloc]) and result.scheme == "https"
+        except:
+            return False
+
     def _format_xml_response(self, response, entity):
+        """Parse and format XML response from the API"""
         response = response.get("Response", {})
 
         if "Status" in response:
@@ -191,6 +285,7 @@ class Firewall:
         }
 
     def _perform_action(self, xml_action, entity):
+        """Execute API request and handle response/errors"""
         if self.closed or self.session is None:
             return {
                 "status": "400",
@@ -243,21 +338,17 @@ class Firewall:
                 "data": [],
             }
 
-    def create(self, entity, entity_data):
-        if not isinstance(entity_data, dict):
-            return {
-                "status": "400",
-                "message": "entity_data must be a dictionary.",
-                "data": [],
-            }
-
-        if entity == "Services":
-            entity_data = self._remove_spaces(entity_data)
-
-        xml_action = f"""<Set operation="add"><{entity}>{xmltodict.unparse(entity_data, full_document=False)}</{entity}></Set>"""
-        return self._perform_action(xml_action, entity)
+    def _merge_entities(self, current_entity, new_entity):
+        """Deep merge two entity dictionaries"""
+        for key, value in new_entity.items():
+            if isinstance(value, dict) and isinstance(current_entity.get(key), dict):
+                self._merge_entities(current_entity[key], value)
+            else:
+                current_entity[key] = value
+        return current_entity
 
     def _remove_spaces(self, data):
+        """Remove spaces from values except for specific fields"""
         if not isinstance(data, dict):
             return data
 
@@ -269,62 +360,3 @@ class Firewall:
             elif isinstance(value, str) and key not in ["Name", "Description", "RuleName"]:
                 data[key] = value.replace(" ", "")
         return data
-
-    def read(self, entity, filter_value=None, filter_criteria=LIKE, filter_key_field=None):
-        inner_xml = ""
-        if filter_value:
-            key_field = filter_key_field or "Name"
-            inner_xml = f"""<Filter><key name="{key_field}" criteria="{filter_criteria}">{filter_value}</key></Filter>"""
-
-        xml_action = f"""<Get><{entity}>{inner_xml}</{entity}></Get>"""
-        return self._perform_action(xml_action, entity)
-
-    def update(self, entity, entity_data, entity_name=None, entity_name_key="Name"):
-        if entity_name is None:
-            if entity_name_key not in entity_data:
-                return {
-                    "status": "400",
-                    "message": f"Entity data must contain '{entity_name_key}' field or provide entity_name parameter.",
-                    "data": [],
-                }
-            entity_name = entity_data[entity_name_key]
-
-        existing_data = self.read(entity, entity_name, EQ, entity_name_key)
-        if existing_data["status"] != "216" or not existing_data["data"]:
-            return {
-                "status": "404",
-                "message": "Entity not found for update.",
-                "data": [],
-            }
-        if len(existing_data["data"]) > 1:
-            return {
-                "status": "400",
-                "message": "Multiple entities found for update. Provide a unique entity_name.",
-                "data": [],
-            }
-
-        current_entity = existing_data["data"][0]
-        updated_data = self._merge_entities(current_entity, entity_data)
-
-        xml_action = f"""<Set operation="update"><{entity}>{xmltodict.unparse(updated_data, full_document=False)}</{entity}></Set>"""
-        return self._perform_action(xml_action, entity)
-
-    def _merge_entities(self, current_entity, new_entity):
-        for key, value in new_entity.items():
-            if isinstance(value, dict) and isinstance(current_entity.get(key), dict):
-                self._merge_entities(current_entity[key], value)
-            else:
-                current_entity[key] = value
-        return current_entity
-
-    def delete(self, entity, filter_value, filter_criteria=EQ, filter_key_field=None):
-        if entity == "FirewallRule":
-            inner_xml = f"<Name>{filter_value}</Name>"
-        elif entity == "LocalServiceACL":
-            inner_xml = f"<RuleName>{filter_value}</RuleName>"
-        else:
-            key_field = filter_key_field or "Name"
-            inner_xml = f'<Filter><key name="{key_field}" criteria="{filter_criteria}">{filter_value}</key></Filter>'
-
-        xml_action = f"""<Remove><{entity}>{inner_xml}</{entity}></Remove>"""
-        return self._perform_action(xml_action, entity)
