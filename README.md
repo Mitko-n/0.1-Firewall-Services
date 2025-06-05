@@ -73,9 +73,7 @@ firewall = Firewall(
     hostname=os.getenv("FIREWALL_HOSTNAME"),
     port=int(os.getenv("FIREWALL_PORT", "4444")),
     certificate_verify=os.getenv("FIREWALL_CERTIFICATE_VERIFY", "False").lower() == "true",
-    timeout=int(os.getenv("FIREWALL_TIMEOUT", "30")),
-    max_retries=int(os.getenv("FIREWALL_MAX_RETRIES", "3")),
-    retry_backoff=float(os.getenv("FIREWALL_RETRY_BACKOFF", "0.5"))
+    timeout=int(os.getenv("FIREWALL_TIMEOUT", "30"))
 )
 
 # Use context manager for automatic session cleanup
@@ -100,9 +98,7 @@ Firewall(
     hostname: str,
     port: int = 4444,
     certificate_verify: bool = False,
-    timeout: int = 30,
-    max_retries: int = 3,
-    retry_backoff: float = 0.5
+    timeout: int = 30
 )
 ```
 
@@ -113,8 +109,6 @@ Firewall(
 - `port` (int, optional): Port number for the API. Default is 4444
 - `certificate_verify` (bool, optional): Whether to verify SSL certificates. Default is False
 - `timeout` (int, optional): Request timeout in seconds. Default is 30
-- `max_retries` (int, optional): Maximum number of retry attempts. Default is 3
-- `retry_backoff` (float, optional): Delay between retry attempts. Default is 0.5
 
 ### Create
 

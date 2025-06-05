@@ -69,8 +69,6 @@ firewall = Firewall(
     port=4444,
     certificate_verify=False,  # Set to True in production
     timeout=30,  # Default timeout in seconds
-    max_retries=3,  # Number of retry attempts
-    retry_backoff=0.5,  # Backoff factor for retries
 )
 
 # Use as a context manager (recommended)

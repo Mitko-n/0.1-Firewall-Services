@@ -8,8 +8,6 @@ import xml.sax.saxutils  # For XML string escaping
 import requests          # For HTTP requests
 import urllib3          # For HTTP/HTTPS related utilities
 import xmltodict        # For XML-dict conversion
-from requests.adapters import HTTPAdapter      # For HTTP connection management
-from urllib3.util.retry import Retry          # For retry functionality
 
 # Configure warnings handling
 # Suppress SyntaxWarning for invalid escape sequences
@@ -29,10 +27,10 @@ class Firewall:
     Handles authentication, CRUD operations, and connection management.
     """
 
-    def __init__(self, username, password, hostname, port=4444, certificate_verify=True, timeout=30, max_retries=3, retry_backoff=0.5):
+    def __init__(self, username, password, hostname, port=4444, certificate_verify=True, timeout=30):
         """
         Initialize firewall connection with authentication and connection parameters.
-        Validates all input parameters and sets up the HTTP session with retry mechanism.
+        Validates all input parameters and sets up the HTTP session.
         """
         # Input validation section
         # Validate username and password
@@ -61,12 +59,6 @@ class Firewall:
         except (TypeError, ValueError):
             raise ValueError("Timeout must be a valid number greater than 0")
 
-        # Validate retry parameters
-        if not isinstance(max_retries, int) or max_retries < 0:
-            raise ValueError("Maximum retry attempts must be a positive number")
-        if not isinstance(retry_backoff, (int, float)) or retry_backoff < 0:
-            raise ValueError("Retry backoff must be a positive number")
-
         # Setup base URL for API endpoint
         self.url = f"https://{hostname}:{port}/webconsole/APIController"
 
@@ -74,10 +66,9 @@ class Firewall:
         escaped_password = xml.sax.saxutils.escape(password)
         self.xml_login = f"""<Login><Username>{username}</Username><Password>{escaped_password}</Password></Login>"""
 
-        # Initialize HTTP session with retry mechanism
+        # Initialize HTTP session
         self.session = requests.Session()
         self._setup_certificate_verification(certificate_verify)
-        self._setup_retry_strategy(max_retries, retry_backoff)
 
         # Configure secure HTTP headers
         self.headers = {
@@ -108,16 +99,6 @@ class Firewall:
                 "it's recommended to use proper SSL certificates instead of disabling verification.",
                 UserWarning,
             )
-
-    def _setup_retry_strategy(self, max_retries, retry_backoff):
-        """Set up automatic retry mechanism for failed requests"""
-        retry_strategy = Retry(
-            total=max_retries,
-            backoff_factor=retry_backoff,
-            status_forcelist=[500, 502, 503, 504],
-        )
-        adapter = HTTPAdapter(max_retries=retry_strategy)
-        self.session.mount("https://", adapter) # type: ignore
 
     # Resource management methods
     def __enter__(self):
