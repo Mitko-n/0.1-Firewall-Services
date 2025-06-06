@@ -7,7 +7,6 @@ A Python client library for interacting with Sophos Firewall devices via their X
 - Simple and intuitive API for firewall management
 - Support for CRUD operations on firewall entities
 - Automatic session management with context manager
-- Configurable retry mechanism for failed requests
 - SSL certificate verification options
 - Comprehensive error handling
 - Detailed logging capabilities
@@ -98,10 +97,13 @@ response = firewall.create("FirewallRule", rule)
 rules = firewall.read("FirewallRule")
 
 # Get specific IP host
-host = firewall.read("IPHost", "Server1", "=")
+host = firewall.read("IPHost", "Server1", EQ)
 
 # Search services containing "HTTP"
-services = firewall.read("Services", "HTTP", "like")
+services = firewall.read("Services", "HTTP", LIKE)
+
+# Get IP hosts with specific IP address
+ip_hosts = firewall.read("IPHost", "192.168", LIKE, "IPAddress")
 ```
 
 ### Update Operations
@@ -128,8 +130,14 @@ response = firewall.update("FirewallRule", update_rule)
 # Delete an IP host
 response = firewall.delete("IPHost", "Server1")
 
-# Delete a firewall rule
+# Delete a firewall rule (special case)
 response = firewall.delete("FirewallRule", "Allow_Web")
+
+# Delete all services containing "Custom"
+response = firewall.delete("Services", "Custom", LIKE)
+
+# Delete all IP hosts with IP addresses starting with "192.168"
+response = firewall.delete("IPHost", "192.168", LIKE, "IPAddress")
 ```
 
 ## Error Handling
