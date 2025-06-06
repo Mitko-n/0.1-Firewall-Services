@@ -46,15 +46,32 @@ pip install -r requirements.txt
 Create a `.env` file in your project root with the following variables:
 
 ```env
+# Authentication
 FIREWALL_USERNAME=admin
 FIREWALL_PASSWORD=your_password
+
+# Connection
 FIREWALL_HOSTNAME=192.168.1.1
 FIREWALL_PORT=4444
+
+# Security
 FIREWALL_CERTIFICATE_VERIFY=False
-FIREWALL_TIMEOUT=30
-FIREWALL_MAX_RETRIES=3
-FIREWALL_RETRY_BACKOFF=0.5
 ```
+
+**Variable Descriptions:**
+
+| Variable | Description | Default | Required |
+|----------|-------------|---------|----------|
+| FIREWALL_USERNAME | Username for firewall authentication | - | Yes |
+| FIREWALL_PASSWORD | Password for firewall authentication | - | Yes |
+| FIREWALL_HOSTNAME | Hostname or IP address of the firewall | - | Yes |
+| FIREWALL_PORT | Port number for the API | 4444 | No |
+| FIREWALL_CERTIFICATE_VERIFY | Whether to verify SSL certificates | False | No |
+
+**Notes:**
+- Required variables must be set for the API to function
+- For production environments, it's recommended to set `FIREWALL_CERTIFICATE_VERIFY=True`
+- The port number must be between 1 and 65535
 
 ## Basic Usage
 
@@ -224,21 +241,38 @@ delete(
 ```
 
 **Parameters:**
-- `entity` (str): The type of entity to delete (e.g., "FirewallRule", "IPHost")
+- `entity` (str): The type of entity to delete (e.g., "FirewallRule", "IPHost", "LocalServiceACL")
 - `filter_value` (str): Value to identify the entity to delete
-- `filter_criteria` (str, optional): Filter criteria. Default is "=" (EQ)
+- `filter_criteria` (str, optional): Filter criteria. Can be "=" (EQ), "!=" (NOT), or "like" (LIKE). Default is "=" (EQ)
 - `filter_key_field` (str, optional): Field to filter on. Default is "Name"
+
+**Special Cases:**
+- For `FirewallRule` entities, the filter_value is used directly as the rule name
+- For `LocalServiceACL` entities, the filter_value is used as the rule name
+- For all other entities, the filter_value is used with the specified filter_criteria and filter_key_field
 
 **Returns:**
 - Dictionary with status, message, and data
 
 **Example:**
 ```python
-# Delete a firewall rule by name
+# Delete a firewall rule by name (special case)
 response = firewall.delete("FirewallRule", "Demo Rule")
+
+# Delete a LocalServiceACL rule (special case)
+response = firewall.delete("LocalServiceACL", "ACL Rule Name")
 
 # Delete an IP host with a specific name
 response = firewall.delete("IPHost", "TestHost")
+
+# Delete all firewall rules containing "DNAT" in their name
+response = firewall.delete("FirewallRule", "DNAT", LIKE)
+
+# Delete all IP hosts with IP addresses starting with "192.168"
+response = firewall.delete("IPHost", "192.168", LIKE, "IPAddress")
+
+# Delete all services containing "Custom" in their name
+response = firewall.delete("Service", "Custom", LIKE)
 ```
 
 ### Close
@@ -254,8 +288,17 @@ close() -> ResponseType
 
 **Example:**
 ```python
-# Close the session
+# Close the session explicitly
 response = firewall.close()
+
+# Using close with try-finally
+try:
+    # Your operations here
+    response = firewall.read("FirewallRule")
+    print(response)
+finally:
+    # Ensure the session is closed
+    firewall.close()
 ```
 
 ## Response Format
